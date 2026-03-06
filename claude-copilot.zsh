@@ -28,7 +28,19 @@ for m in sorted(data.get('data', []), key=lambda x: x['id']):
 }
 
 claude-copilot() {
-  local model="$1"
+  # Separate flags (--*) from positional args so flags can appear anywhere.
+  # First non-flag argument is treated as the model name.
+  local model=""
+  local -a claude_args=()
+  for arg in "$@"; do
+    if [[ "$arg" == -* ]]; then
+      claude_args+=("$arg")
+    elif [[ -z "$model" ]]; then
+      model="$arg"
+    else
+      claude_args+=("$arg")
+    fi
+  done
 
   # Reuse existing proxy if it's healthy, otherwise start a new one
   if curl -sf http://localhost:4141/v1/models &>/dev/null; then
@@ -82,7 +94,7 @@ claude-copilot() {
   fi
 
   # Copy launch command to clipboard and print it
-  local cmd="ANTHROPIC_BASE_URL=http://localhost:4141 claude --model $model"
+  local cmd="ANTHROPIC_BASE_URL=http://localhost:4141 claude --model $model${claude_args:+ ${claude_args[*]}}"
   if command -v pbcopy &>/dev/null; then
     echo "$cmd" | pbcopy
     echo "📋 Copied launch command to clipboard"
@@ -102,7 +114,7 @@ claude-copilot() {
   ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-4.6 \
   ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-4.6 \
   ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-4.5 \
-  claude --model "$model" "${@:2}"
+  claude --model "$model" "${claude_args[@]}"
 }
 
 # List all models available through the copilot proxy
